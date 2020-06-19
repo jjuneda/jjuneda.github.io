@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<meta http-equiv="X-UA-Compatible" content="ie=edge">
+		<link rel="icon" type="image/png" href="favicon.png">
+		<title>three.js - juneda</title>
+    <!-- juneda -->
+	</head>
+	<body style="margin: 0px;">
+		<script src="libraries/three.js"></script>
+		<script src="libraries/OrbitControls.js"></script>
+		<script src="libraries/DragControls.js"></script>
+		<script>
+			var camera, orbitControls, dragControls, scene, renderer;
+			var clock = new THREE.Clock();
+			var width = window.innerWidth;
+			var height = window.innerHeight;
+			var fontLoader = new THREE.FontLoader();
+			var meshes = [];
+
+			camera = new THREE.PerspectiveCamera(50, width / height, 1, 10000);
+			camera.position.set(2, 5, 20);
+			camera.lookAt(0, 5, 0);
+			scene = new THREE.Scene();
+
+			var font_path = 'libraries/helvetiker_regular.typeface.json';
+			fontLoader.load(font_path, function(font) {
+				var boidsGeometry = new THREE.TextGeometry('boids', {font: font, size: 1, height: 1, curveSegments: 2});
+				var boids = new THREE.Mesh(boidsGeometry, new THREE.MeshBasicMaterial({wireframe: true, wireframeLinewidth: 1, transparent: true, opacity: 0.5, color: 0xffffff}));
+				boids.name = 'boids';
+				boids.position.set(0, 7.5, 0);
+				meshes.push(boids);
+				scene.add(boids);
+			});
+			fontLoader.load(font_path, function(font) {
+				var windGeometry = new THREE.TextGeometry('gpu wind', {font: font, size: 1, height: 1, curveSegments: 2});
+				var wind = new THREE.Mesh(windGeometry, new THREE.MeshBasicMaterial({wireframe: true, wireframeLinewidth: 1, transparent: true, opacity: 0.5, color: 0xffffff}));
+				wind.name = 'wind';
+				wind.position.set(0, 5, 0);
+				meshes.push(wind);
+				scene.add(wind);
+			});
+			fontLoader.load(font_path, function(font) {
+				var waterGeometry = new THREE.TextGeometry('gpu water', {font: font, size: 1, height: 1, curveSegments: 2});
+				var water = new THREE.Mesh(waterGeometry, new THREE.MeshBasicMaterial({wireframe: true, wireframeLinewidth: 1, transparent: true, opacity: 0.5, color: 0xffffff}));
+				water.name = 'water';
+				water.position.set(0, 2.5, 0);
+				meshes.push(water);
+				scene.add(water);
+			});
+			fontLoader.load(font_path, function(font) {
+				var mixer3DGeometry = new THREE.TextGeometry('mixer3D', {font: font, size: 1, height: 1, curveSegments: 2});
+				var mixer3D = new THREE.Mesh(mixer3DGeometry, new THREE.MeshBasicMaterial({wireframe: true, wireframeLinewidth: 1, transparent: true, opacity: 0.5, color: 0xffffff}));
+				mixer3D.name = 'mixer3D';
+				mixer3D.position.set(0, 0, 0);
+				meshes.push(mixer3D);
+				scene.add(mixer3D);
+			});
+
+			// renderer
+			renderer = new THREE.WebGLRenderer({antialias: true});
+			renderer.setPixelRatio(window.devicePixelRatio);
+			renderer.setSize(width, height);
+			document.body.appendChild(renderer.domElement);
+
+			// controls
+			// orbitControls = new THREE.OrbitControls(camera, renderer.domElement);
+			// orbitControls.target.set(0, 5, 0);
+			// orbitControls.update();
+			dragControls = new THREE.DragControls(meshes, camera, renderer.domElement);
+			dragControls.enabled = false;
+
+			// events
+			window.addEventListener('resize', onWindowResize, false);
+			dragControls.addEventListener('hoveron', onMeshHover);
+			dragControls.addEventListener('hoveroff', onMeshUnhover);
+			dragControls.addEventListener('dragstart', onMeshClick);
+
+			// start animation loop
+			update();
+
+			// resize update
+			function onWindowResize() {
+				width = window.innerWidth;
+				height = window.innerHeight;
+				camera.aspect = width / height;
+				camera.updateProjectionMatrix();
+				renderer.setSize(width, height);
+			}
+
+			// mesh hovered
+			function onMeshHover(e) {
+				e.object.scale.z = 4;
+			}
+			// mesh hovered
+			function onMeshUnhover(e) {
+				e.object.scale.z = 1;
+			}
+
+			// mesh selected
+			function onMeshClick(e) {
+				switch(e.object.name) {
+				  case 'boids':
+						location.href = "boids/index.html";
+				    break;
+				  case 'wind':
+						location.href = "wind/index.html";
+				    break;
+				  case 'water':
+						location.href = "water/index.html";
+				    break;
+				  case 'mixer3D':
+						location.href = "mixer3D/index.html";
+				    break;
+				}
+				_domElement.style.cursor = 'auto';
+			}
+
+			// update scene
+			function update() {
+				// animation loop
+				requestAnimationFrame(update);
+				// render scene to canvas
+				renderer.render(scene, camera);
+			}
+		</script>
+		<!-- <span>experiments</span>
+		<a href="boids/index.html" class="link">boids</a>
+		<a href="wind/index.html" class="link">gpu wind</a>
+		<a href="water/index.html" class="link">gpu water</a>
+		<a href="mixer3D/index.html" class="link">mixer3D</a> -->
+  </body>
+</html>

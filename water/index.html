@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<meta http-equiv="X-UA-Compatible" content="ie=edge">
+		<title>water</title>
+		<!-- juneda -->
+	</head>
+	<body>
+		<style>
+			body{margin: 0; padding: 0; width: 100%;}
+			canvas{width: 100%; height: 100%;}
+		</style>
+    <script src="../libraries/dat.gui.js"></script>
+		<script src="../libraries/three.js"></script>
+		<script src="../libraries/GPUComputationRenderer.js"></script>
+		<script src="../libraries/OrbitControls.js"></script>
+
+		<!-- GPGPU shader -->
+		<script type="x-shader/x-fragment" id="computeShaderPosition">
+			// application inputs
+			uniform float time;
+			uniform float delta;
+			uniform vec2 mouse;
+			uniform float click;
+			uniform float drag;
+			uniform float contactRad;
+			uniform float contactAmp;
+			uniform vec3 camMovement;
+			uniform float pTexWidth;
+			// input textures
+			uniform sampler2D initialState;
+
+			void main() {
+				// setup
+				vec2 uv = gl_FragCoord.xy / resolution.xy; // fragment coordinates
+				vec4 position = texture2D(texturePosition, uv); // (x,z) plane coordinates; (y,w) current/previous wave height
+				// vec4 initial = texture2D(initialState, uv) * 0.16;
+				// position.y = mix(position.y + length(initial.b) * 0.06, position.y, clamp(time - 0.002, 0.0, 1.0));
+
+				// wave equation algorithm based on http://www.mtnmath.com/whatrh/node66.html
+				// truncation not needed because current wave range is 0-1, reference is 0-100
+				// rates of change calculations
+				float t = mix(0.002, position.y, step(0.01, 1.0 - length(position.xz))); // current height
+				float tMinus1 = position.w; // previous height
+				// sampling neighbors
+				float tR = mix(0.002, texture2D(texturePosition, uv + vec2(1.0 / pTexWidth, 0.0)).y, step(0.01, 1.0 - length(position.xz))); // right
+				float tL = mix(0.002, texture2D(texturePosition, uv - vec2(1.0 / pTexWidth, 0.0)).y, step(0.01, 1.0 - length(position.xz))); // left
+				float tU = mix(0.002, texture2D(texturePosition, uv + vec2(0.0, 1.0 / pTexWidth)).y, step(0.01, 1.0 - length(position.xz))); // up
+				float tD = mix(0.002, texture2D(texturePosition, uv - vec2(0.0, 1.0 / pTexWidth)).y, step(0.01, 1.0 - length(position.xz))); // down
+				float tNeighbors = (tR + tL + tU + tD - (4.0 * t)) / 4.0;
+				// discrete wave equation
+				float wave = (2.0 * t) - tMinus1 + tNeighbors; // new height
+				wave = wave * 0.98; // damping
+
+				// surface contact wave using mouse input
+				// auxiliary logic rings to build wave (to avoid using if else control flow statements)
+				float ring0 = 1.0 - step(contactRad * 0.25, distance(mouse, position.xz)); // less than 0.008
+				float ring1 = step(contactRad, distance(mouse, position.xz)); // more than 0.32
+				float ring2 = 1.0 - step(contactRad * 1.437, distance(mouse, position.xz)); // less than 0.046
+				// cone downwards if ring1 and ring2 else cone upwards (contact wave aproximation)
+				float contactWave = contactAmp * mix(distance(mouse, position.xz) - 0.046, contactRad * 1.437 - (distance(mouse, position.xz)), step(2.0, ring1 + ring2));
+				float dragWave = mix(position.y, mix(clamp(contactWave, -0.016, 0.128), max(position.y, contactWave), ring1), ring2); // without droplet
+				float pointAux = mix(contactWave, -contactWave * 0.6 - 0.024, ring0);
+				float pointWave = mix(position.y, mix(pointAux, max(position.y, pointAux), ring1), ring2); // with droplet
+
+				// output
+				float surfaceContact = (wave + mix(mix(dragWave, -pointWave * 0.2, click), wave, ring1)) / 2.0;
+				vec3 positionUpdt = vec3(position.x, clamp(mix(wave, surfaceContact, step(1.0, click + drag)), -0.5, 0.5), position.z);
+				gl_FragColor = vec4(positionUpdt, position.y);
+			}
+		</script>
+		<!-- particle shaders -->
+		<script type="x-shader/x-vertex" id="vertexParticles">
+			// vertex attributes
+			// position
+			attribute float id;
+			attribute vec3 customColor;
+			attribute float size;
+			// application inputs
+			uniform float time;
+			uniform float delta;
+			uniform float pointSize;
+			// input textures
+			uniform sampler2D texturePosition;
+			// to fragment
+			varying vec3 vColor;
+
+			void main() {
+				// setup
+				vec3 position = texture2D(texturePosition, uv).xyz;
+				vColor = vec3(0.2, 0.4, 0.6 + position.y * 20.0) * 1.8;
+				vec3 bioLux = vec3(0.0, 0.1, 0.3) + vec3(0.1, 0.1, 0.2 + position.y * 512.0) * position.y * 256.0;
+				vColor = mix(vColor, bioLux, smoothstep(0.0, 10.0, time));
+				vColor = mix(vec3(0.0), vColor, step(0.01, 1.0 - length(position.xz)));
+				// output
+				float lengthFactor = length(position.xz) + 1.0;
+				vec4 mvPosition = modelViewMatrix * vec4(position.x, position.y * 2.0, position.z, 1.0);
+				gl_PointSize = (step(0.01, 1.0 - length(position.xz)) * pointSize) / -mvPosition.z;
+				gl_Position = projectionMatrix * mvPosition;
+			}
+		</script>
+		<script type="x-shader/x-fragment" id="fragmentParticles">
+			// application inputs
+			uniform float time;
+			uniform float delta;
+			uniform float pointAlpha;
+			// input textures
+			uniform sampler2D texturePosition;
+			uniform sampler2D vectorFieldTexture;
+			uniform sampler2D pointTexture;
+			// from vertex
+			varying vec3 vColor;
+
+			void main() {
+				// output
+				gl_FragColor = vec4(vColor, texture2D(pointTexture, gl_PointCoord).a * pointAlpha);
+			}
+		</script>
+		<script type="x-shader/x-fragment" id="fragmentStarField">
+			// application inputs
+			uniform float time;
+			uniform float delta;
+			uniform vec3 color;
+			// input textures
+			uniform sampler2D starTexture;
+			// from vertex
+			varying vec3 vColor;
+			varying float depth;
+
+			void main() {
+				gl_FragColor = vec4(color * vColor, 1.0);
+				gl_FragColor = gl_FragColor * texture2D(starTexture, gl_PointCoord).a;
+			}
+		</script>
+		<script>
+		// scene setup /////////////////////////////////////////////////////////////
+		var width = window.innerWidth;
+		var height = window.innerHeight;
+		var scene = new THREE.Scene();
+		var renderer = new THREE.WebGLRenderer({antialias: true});
+		var camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+		var raycaster = new THREE.Raycaster();
+		var controls = new THREE.OrbitControls(camera, renderer.domElement);
+		var mouse = new THREE.Vector2(1.0);
+		var click = 0.0;
+		var drag = 0.0;
+		renderer.setSize(window.innerWidth, window.innerHeight);
+		document.body.appendChild(renderer.domElement);
+		// set initial camera position and orientation
+		camera.position.x = -1.6;
+		camera.position.y = 0.6;
+		camera.position.z = 0.0;
+		camera.lookAt(new THREE.Vector3());
+		// sim variables
+		var lastCamPosition = camera.position.clone();
+		var tick = 0;
+		var time = 0.0; // for countdown start
+		var last = performance.now(); // for delta calculation
+		var toggleRaycast = 0;
+		var toggleClick = 0;
+
+		// datgui initialization
+		var ConfigGUI = function() {
+		  this.experiment = 'surface waves';
+			this.particleTexWidth = 256;
+			this.particleAlpha = 0.86;
+			this.particleSize = 4.6;
+		  this.contactRad = 0.032;
+			this.contactAmp = 1.2;
+		  this.music = true;
+		};
+		var gui = new ConfigGUI();
+		window.onload = function() {
+		  var datgui = new dat.GUI();
+		  datgui.add(gui, 'experiment');
+			datgui.add(gui, 'particleTexWidth', 16, 2048);
+			datgui.add(gui, 'particleAlpha', 0.01, 1.0);
+			datgui.add(gui, 'particleSize', 1.0, 64.0);
+		  datgui.add(gui, 'contactRad', 0.032, 0.096);
+		  datgui.add(gui, 'contactAmp', 0.5, 4.0);
+		  // datgui.add(gui, 'music');
+		  datgui.close();
+		};
+
+		// window resizer
+		window.addEventListener('resize', function(){
+			width = window.innerWidth;
+			height = window.innerHeight;
+			renderer.setSize(width, height);
+			camera.aspect = width / height;
+			camera.updateProjectionMatrix();
+		});
+		// mouse position
+		window.addEventListener('mousemove', function(event){
+			event.preventDefault();
+			mouse.x = ((event.clientX / width) * 2) - 1;
+			mouse.y = -((event.clientY / height) * 2) + 1;
+		});
+		// mouse click
+		window.addEventListener('click', function(event){
+			event.preventDefault();
+			click = 1.0;
+		});
+		// mouse down
+		window.addEventListener('mousedown', function(event){
+			event.preventDefault();
+			drag = 1.0;
+		});
+		// mouse up
+		window.addEventListener('mouseup', function(event){
+			event.preventDefault();
+			drag = 0.0;
+		});
+		// touch start
+		window.addEventListener('touchstart', function(event){
+			event.preventDefault();
+			drag = 1.0;
+		});
+		// touch end
+		window.addEventListener('touchend', function(event){
+			event.preventDefault();
+			drag = 0.0;
+		});
+
+		// simulation class ////////////////////////////////////////////////////////
+		class Waves {
+			constructor(textureWidth) {
+				// mouse helper circle
+				var helperGeometry = new THREE.CircleGeometry(0.996, 32);
+				var helperMaterial = new THREE.MeshBasicMaterial({color: 0x0000ff});
+				this.circle = new THREE.Mesh(helperGeometry, helperMaterial);
+				scene.add(this.circle);
+				this.circle.rotateX(-1.57);
+				this.circle.translateZ(-0.032);
+				this.circle.visible = false;
+
+				// particle geometry setup /////////////////////////////////////////////
+				var pTexWidth = textureWidth;
+				var particleAmount = pTexWidth * pTexWidth; // amount of particles
+				// shader attributes
+				var idsParticles = new Float32Array(particleAmount); // vertex ids (unused for now)
+				var uvsParticles = new Float32Array(particleAmount * 2); // particle coordinates on computation texture
+				var positionsParticles = new Float32Array(particleAmount * 3); // initial particle positions
+				var colorsParticles = new Float32Array(particleAmount * 3); // per vertex color (0x008866 for now)
+				var sizesParticles = new Float32Array(particleAmount); // per vertex size
+				var tmpVertexParticles = new THREE.Vector3();
+				var tmpColorParticles = new THREE.Color(0x008866);
+				// initialize attribute values
+				for (let i = 0; i < particleAmount; i++) { // grid using / and %
+					tmpVertexParticles.x = ((Math.floor(i / pTexWidth) / pTexWidth) - 0.5) * 2.0;
+					tmpVertexParticles.y = 0.0;
+					tmpVertexParticles.z = (((i % pTexWidth) / pTexWidth) - 0.5)  * 2.0;
+					// add to data buffers
+					tmpVertexParticles.toArray(positionsParticles, i * 3);
+					tmpColorParticles.toArray(colorsParticles, i * 3);
+					idsParticles[i] = i;
+					sizesParticles[i] = 1.0;
+				}
+				// calculate compute shader texture uvs
+				let p = 0;
+				for (let j = 0; j < pTexWidth; j++) {
+					for (let i = 0; i < pTexWidth; i++) {
+						uvsParticles[p++] = i / pTexWidth;
+						uvsParticles[p++] = j / pTexWidth;
+					}
+				}
+				console.log(pTexWidth);
+				var geometryParticles = new THREE.BufferGeometry(); // init geometry
+				geometryParticles.setAttribute('id', new THREE.BufferAttribute(idsParticles, 1));
+				geometryParticles.setAttribute('uv', new THREE.BufferAttribute(uvsParticles, 2));
+				geometryParticles.setAttribute('position', new THREE.BufferAttribute(positionsParticles, 3));
+				geometryParticles.setAttribute('customColor', new THREE.BufferAttribute(colorsParticles, 3));
+				geometryParticles.setAttribute('size', new THREE.BufferAttribute(sizesParticles, 1));
+				// particle shader setup
+				// shader parameters
+				this.uniformsParticles = {
+					time: {type: "f", value: 0.0},
+					delta: {type: "f", value: 0.0},
+					pointAlpha: {type: "f", value: gui.particleAlpha},
+					pointSize: {type: "f", value: gui.particleSize},
+					pointTexture: {value: new THREE.TextureLoader().load("circle.png")},
+					texturePosition: {value: null},
+					texturePrevPos: {value: null}
+				};
+				// material
+				var materialParticles = new THREE.ShaderMaterial({
+					uniforms: this.uniformsParticles,
+					vertexShader: document.getElementById('vertexParticles').textContent,
+					fragmentShader: document.getElementById('fragmentParticles').textContent,
+					blending: THREE.AdditiveBlending,
+					depthTest: false,
+					transparent: true
+				});
+				// add to scene
+				this.particles = new THREE.Points(geometryParticles, materialParticles);
+				scene.add(this.particles);
+
+				// GPGPU setup and initialization //////////////////////////////////////
+				this.positionVariable;
+				this.gpuCompute = new THREE.GPUComputationRenderer(pTexWidth, pTexWidth, renderer);
+				var dtPosition = this.gpuCompute.createTexture();
+				this.positionBuffer = dtPosition.clone();
+				// pre-fill computation texture
+				var posDataArray = dtPosition.image.data;
+				let j = 0; // index offset
+				for (let k = 0, kl = posDataArray.length; k < kl + 2; k += 4) {
+					posDataArray[k + 0] = positionsParticles[j + 0]; // copy shader attribute array
+					posDataArray[k + 1] = positionsParticles[j + 1];
+					posDataArray[k + 2] = positionsParticles[j + 2];
+					posDataArray[k + 3] = 0.0;
+					j += 3;
+				}
+				// computation variable initialization
+				this.positionVariable = this.gpuCompute.addVariable("texturePosition", document.getElementById('computeShaderPosition').textContent, dtPosition);
+				this.gpuCompute.setVariableDependencies(this.positionVariable, [this.positionVariable]);
+				this.positionUniforms = this.positionVariable.material.uniforms;
+				// computation shader uniforms init
+				this.positionUniforms["time"] = {value: 0.0};
+				this.positionUniforms["delta"] = {value: 0.0};
+				this.positionUniforms["pTexWidth"] = {value: pTexWidth};
+				this.positionUniforms["mouse"] = {value: mouse};
+				this.positionUniforms["click"] = {value: click};
+				this.positionUniforms["drag"] = {value: drag};
+				this.positionUniforms["contactRad"] = {value: gui.contactRad};
+				this.positionUniforms["contactAmp"] = {value: gui.contactAmp};
+				this.positionUniforms["camMovement"] = {value: new THREE.Vector3(0.0)};
+				this.positionUniforms["texturePrevPos"] = {value: null};
+				// this.positionUniforms["initialState"] = {value: new THREE.TextureLoader().load("circles.jpg")};
+				// initialize GPGPU after setup
+				var error = this.gpuCompute.init();
+				if (error !== null) {
+						console.error(error);
+				}
+			}
+
+			// calculating and updating shader uniforms only
+			// wave simulation logic on computeShaderPosition
+			runFrame() {
+				// get time variables
+				let now = performance.now();
+				let delta = (now - last) / 1000.0; // variable delta to support different monitor Hz
+				if (delta > 1) delta = 1.0; // limit deltas
+				last = now;
+				time += delta;
+
+				// camera movement
+				let camMovement = new THREE.Vector3(0.0);
+				camMovement.subVectors(camera.position, lastCamPosition);
+				lastCamPosition = camera.position.clone();
+
+				// update time uniforms
+				this.positionUniforms["time"].value = time;
+				this.positionUniforms["delta"].value = delta;
+				this.positionUniforms["contactRad"].value = gui.contactRad;
+				this.positionUniforms["contactAmp"].value = gui.contactAmp;
+				this.positionUniforms["camMovement"].value = camMovement;
+				this.uniformsParticles["time"].value = time;
+				this.uniformsParticles["delta"].value = delta;
+				this.uniformsParticles["pointAlpha"].value = gui.particleAlpha;
+				this.uniformsParticles["pointSize"].value = gui.particleSize;
+
+				// update t-1 buffer on compute shader
+				this.positionUniforms["texturePrevPos"].value = this.positionBuffer.clone();
+				// get mouse input in object coordinates
+				raycaster.setFromCamera(mouse, camera);
+				let noInter = new THREE.Vector2(4.0); // coordinates outside surface range
+				let intersections = raycaster.intersectObjects([this.circle]);
+				let intersection = (intersections.length) > 0 ? new THREE.Vector2(intersections[0].point.x, intersections[0].point.z) : noInter;
+				// if intersection is inside circle
+				if (toggleRaycast > 0.016 && intersection.length() <= 1.0) {
+					this.positionUniforms["mouse"].value = intersection; // update mouse coordinates in object space
+					this.positionUniforms["click"].value = click;
+					this.positionUniforms["drag"].value = drag;
+					toggleRaycast = 0;
+					// disable cam orbiting to allow dragging the mouse on the surface
+					controls.enableRotate = false;
+					document.body.style.cursor = "pointer";
+				} else {
+					this.positionUniforms["mouse"].value = noInter; // update mouse coordinates outside circle
+					// enable cam back
+					controls.enableRotate = true;
+					document.body.style.cursor = "grab";
+				}
+				toggleRaycast += delta;
+
+				// click
+				if (toggleClick > 0.064) {
+					click = 0.0;
+					toggleClick = 0;
+				}
+				toggleClick += delta;
+
+				// compute particle movement on gpu and update particle shader uniform
+				this.gpuCompute.compute();
+				this.uniformsParticles["texturePosition"].value = this.gpuCompute.getCurrentRenderTarget(this.positionVariable).texture;
+				// save position to buffer
+				this.positionBuffer = this.uniformsParticles["texturePosition"].value.clone();
+				tick += 1;
+			}
+		}
+
+
+		// frame animation /////////////////////////////////////////////////////////
+		var texWidth = Math.floor(gui.particleTexWidth);
+		var waves = new Waves(texWidth);
+		var sliderLag = 0.0;
+		var update = function() {
+			if (texWidth / Math.floor(gui.particleTexWidth) == 1.0) {
+				waves.runFrame();
+			} else {
+				texWidth = Math.floor(gui.particleTexWidth);
+				scene = new THREE.Scene();
+				globalPositionBuffer = waves.positionBuffer.clone();
+				// console.log(globalPositionBuffer);
+				waves = new Waves(texWidth);
+				waves.positionUniforms["texturePrevPos"].value = globalPositionBuffer.clone();
+			}
+			sliderLag += 0.016;
+		};
+
+		// objects to screen ///////////////////////////////////////////////////////
+		var render = function() {
+			// render scene from camera
+			renderer.render(scene, camera);
+		};
+
+		// frame render loop ///////////////////////////////////////////////////////
+		var loop = function() {
+			requestAnimationFrame(loop);
+			update();
+			render();
+		};
+		loop();
+		</script>
+	</body>
+</html>

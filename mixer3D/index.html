@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<meta http-equiv="X-UA-Compatible" content="ie=edge">
+		<link rel="icon" type="image/png" href="favicon.png">
+		<link type="text/css" rel="stylesheet" href="style.css">
+		<title>mixer3D</title>
+		<!-- juneda -->
+	</head>
+	<body>
+		<script src="../libraries/three.js"></script>
+		<script src="../libraries/OrbitControls.js"></script>
+		<script src="../libraries/DragControls.js"></script>
+		<div id="overlay">
+			<div id="introContainer">
+			<div class="intro">Mix tracks by adjusting their position in 3D space.</div>
+			<div class="intro">Drag the camera around to try other perspectives.</div>
+			<div class="intro">Song: 1 + One by <a href="https://soundcloud.com/user9860438/3-1-one-3">Elfant</a></div>
+			</div>
+			<button id="startButton">Wait</button>
+		</div>
+		<script>
+			// setup variables
+			THREE.Cache.enabled = true;
+			var camera, orbitControls, dragControls, scene, renderer;
+			var clock = new THREE.Clock();
+			var width = window.innerWidth;
+			var height = window.innerHeight;
+			var meshes = [];
+
+			var startButton = document.getElementById('startButton');
+			startButton.disabled = true;
+			startButton.addEventListener('click', init);
+
+			var fontLoader = new THREE.FontLoader();
+
+			// scene setup
+			camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 1, 10000);
+			camera.position.set(36, 36, 0);
+			var listener = new THREE.AudioListener();
+			camera.add(listener);
+			scene = new THREE.Scene();
+
+			// soundstage
+			var floor = new THREE.GridHelper(100, 10, 0x888888, 0x888888);
+			var back = new THREE.GridHelper(100, 10, 0x888888, 0x888888);
+			var left = new THREE.GridHelper(100, 10, 0x888888, 0x888888);
+			var right = new THREE.GridHelper(100, 10, 0x888888, 0x888888);
+			back.position.y = 50;
+			back.position.x = -50;
+			back.rotateZ(1.5708);
+			left.position.y = 50;
+			left.position.z = 50;
+			left.rotateX(1.5708);
+			right.position.y = 50;
+			right.position.z = -50;
+			right.rotateX(1.5708);
+			scene.add(floor);
+			scene.add(back);
+			scene.add(left);
+			scene.add(right);
+
+			// track meshes
+			var sphere = new THREE.SphereBufferGeometry(2, 32, 16);
+			// BASS.oga
+			var mesh1 = new THREE.Mesh(sphere, new THREE.MeshBasicMaterial({transparent: true, opacity: 0.86, color: 0xd600ff}));
+			mesh1.position.set(-15, 12, 5);
+			mesh1.name = 'BASS';
+			meshes.push(mesh1);
+			scene.add(mesh1);
+			// AC GTR R.oga
+			var mesh2 = new THREE.Mesh(sphere, new THREE.MeshBasicMaterial({transparent: true, opacity: 0.86, color: 0xbd00ff}));
+			mesh2.position.set(5, 15, -30);
+			mesh2.name = 'AC GTR R';
+			meshes.push(mesh2);
+			scene.add(mesh2);
+			// AC GTR L.oga
+			var mesh3 = new THREE.Mesh(sphere, new THREE.MeshBasicMaterial({transparent: true, opacity: 0.86, color: 0xbd00ff}));
+			mesh3.position.set(5, 15, 30);
+			mesh3.name = 'AC GTR L';
+			meshes.push(mesh3);
+			scene.add(mesh3);
+			// BAGPIPE.oga
+			var mesh4 = new THREE.Mesh(sphere, new THREE.MeshBasicMaterial({transparent: true, opacity: 0.86, color: 0x001eff}));
+			mesh4.position.set(-20, 18, -8);
+			mesh4.name = 'BAGPIPE';
+			meshes.push(mesh4);
+			scene.add(mesh4);
+			// DRONES.oga
+			var mesh5 = new THREE.Mesh(sphere, new THREE.MeshBasicMaterial({transparent: true, opacity: 0.86, color: 0x001eff}));
+			mesh5.position.set(-25, 22, 12);
+			mesh5.name = 'DRONES';
+			meshes.push(mesh5);
+			scene.add(mesh5);
+			// ELEC GTR.oga
+			var mesh6 = new THREE.Mesh(sphere, new THREE.MeshBasicMaterial({transparent: true, opacity: 0.86, color: 0xd600ff}));
+			mesh6.position.set(-10, 15, -15);
+			mesh6.name = 'ELEC GTR';
+			meshes.push(mesh6);
+			scene.add(mesh6);
+			// FX SONG.oga
+			var mesh7 = new THREE.Mesh(sphere, new THREE.MeshBasicMaterial({transparent: true, opacity: 0.86, color: 0x00b8ff}));
+			mesh7.position.set(-15, 15, 15);
+			mesh7.name = 'FX SONG';
+			meshes.push(mesh7);
+			scene.add(mesh7);
+			// REVERB.oga
+			var mesh8 = new THREE.Mesh(sphere, new THREE.MeshBasicMaterial({transparent: true, opacity: 0.86, color: 0x00b8ff}));
+			mesh8.position.set(-40, 15, 0);
+			mesh8.name = 'REVERB';
+			meshes.push(mesh8);
+			scene.add(mesh8);
+			// DELAY.oga
+			var mesh9 = new THREE.Mesh(sphere, new THREE.MeshBasicMaterial({transparent: true, opacity: 0.86, color: 0x00b8ff}));
+			mesh9.position.set(5, 15, -5);
+			mesh9.name = 'DELAY';
+			meshes.push(mesh9);
+			scene.add(mesh9);
+			// VOC L.oga
+			var mesh10 = new THREE.Mesh(sphere, new THREE.MeshBasicMaterial({transparent: true, opacity: 0.86, color: 0x00ff9f}));
+			mesh10.position.set(-5, 18, 22);
+			mesh10.name = 'VOC L';
+			meshes.push(mesh10);
+			scene.add(mesh10);
+			// VOC R.oga
+			var mesh11 = new THREE.Mesh(sphere, new THREE.MeshBasicMaterial({transparent: true, opacity: 0.86, color: 0x00ff9f}));
+			mesh11.position.set(-5, 13, -22);
+			mesh11.name = 'VOC R';
+			meshes.push(mesh11);
+			scene.add(mesh11);
+			// VOC.oga
+			var mesh12 = new THREE.Mesh(sphere, new THREE.MeshBasicMaterial({transparent: true, opacity: 0.86, color: 0x00ff9f}));
+			mesh12.position.set(15, 15, 0);
+			mesh12.name = 'VOC';
+			meshes.push(mesh12);
+			scene.add(mesh12);
+
+			// load tracks and assign to meshes
+			var manager = new THREE.LoadingManager();
+			manager.onLoad = function ( ) {
+				startButton.innerText = 'Play';
+				startButton.disabled = false;
+				console.log('Loading done!');
+			};
+			var audioLoader = new THREE.AudioLoader(manager);
+			var sound1 = new THREE.PositionalAudio(listener);
+			audioLoader.load('oneplusoneoga/BASS.oga', function(buffer) {
+				sound1.setBuffer(buffer);
+				sound1.setRefDistance(32);
+			});
+			mesh1.add(sound1);
+			var sound2 = new THREE.PositionalAudio(listener);
+			audioLoader.load('oneplusoneoga/AC GTR R.oga', function(buffer) {
+				sound2.setBuffer(buffer);
+				sound2.setRefDistance(32);
+			});
+			mesh2.add(sound2);
+			var sound3 = new THREE.PositionalAudio(listener);
+			audioLoader.load('oneplusoneoga/AC GTR L.oga', function(buffer) {
+				sound3.setBuffer(buffer);
+				sound3.setRefDistance(32);
+			});
+			mesh3.add(sound3);
+			var sound4 = new THREE.PositionalAudio(listener);
+			audioLoader.load('oneplusoneoga/BAGPIPE.oga', function(buffer) {
+				sound4.setBuffer(buffer);
+				sound4.setRefDistance(32);
+			});
+			mesh4.add(sound4);
+			var sound5 = new THREE.PositionalAudio(listener);
+			audioLoader.load('oneplusoneoga/DRONES.oga', function(buffer) {
+				sound5.setBuffer(buffer);
+				sound5.setRefDistance(32);
+			});
+			mesh5.add(sound5);
+			var sound6 = new THREE.PositionalAudio(listener);
+			audioLoader.load('oneplusoneoga/ELEC GTR.oga', function(buffer) {
+				sound6.setBuffer(buffer);
+				sound6.setRefDistance(32);
+			});
+			mesh6.add(sound6);
+			var sound7 = new THREE.PositionalAudio(listener);
+			audioLoader.load('oneplusoneoga/FX SONG.oga', function(buffer) {
+				sound7.setBuffer(buffer);
+				sound7.setRefDistance(32);
+			});
+			mesh7.add(sound7);
+			var sound8 = new THREE.PositionalAudio(listener);
+			audioLoader.load('oneplusoneoga/REVERB.oga', function(buffer) {
+				sound8.setBuffer(buffer);
+				sound8.setRefDistance(32);
+			});
+			mesh8.add(sound8);
+			var sound9 = new THREE.PositionalAudio(listener);
+			audioLoader.load('oneplusoneoga/DELAY.oga', function(buffer) {
+				sound9.setBuffer(buffer);
+				sound9.setRefDistance(32);
+			});
+			mesh9.add(sound9);
+			var sound10 = new THREE.PositionalAudio(listener);
+			audioLoader.load('oneplusoneoga/VOC L.oga', function(buffer) {
+				sound10.setBuffer(buffer);
+				sound10.setRefDistance(32);
+			});
+			mesh10.add(sound10);
+			var sound11 = new THREE.PositionalAudio(listener);
+			audioLoader.load('oneplusoneoga/VOC R.oga', function(buffer) {
+				sound11.setBuffer(buffer);
+				sound11.setRefDistance(32);
+			});
+			mesh11.add(sound11);
+			var sound12 = new THREE.PositionalAudio(listener);
+			audioLoader.load('oneplusoneoga/VOC.oga', function(buffer) {
+				sound12.setBuffer(buffer);
+				sound12.setRefDistance(32);
+			});
+			mesh12.add(sound12);
+
+			// track names
+			var font_path = '../libraries/helvetiker_regular.typeface.json';
+			fontLoader.load(font_path, function(font){
+				var nameGeometry1 = new THREE.TextGeometry(mesh1.name, {font: font, size: 1, height: 0, curveSegments: 3});
+				var name1 = new THREE.Mesh(nameGeometry1, new THREE.MeshBasicMaterial({visible: false, color: 0xffffff}));
+				name1.position.set(2, 2, 0);
+				mesh1.add(name1);
+			});
+			fontLoader.load(font_path, function(font){
+				var nameGeometry2 = new THREE.TextGeometry(mesh2.name, {font: font, size: 1, height: 0, curveSegments: 3});
+				var name2 = new THREE.Mesh(nameGeometry2, new THREE.MeshBasicMaterial({visible: false, color: 0xffffff}));
+				name2.position.set(2, 2, 0);
+				mesh2.add(name2);
+			});
+			fontLoader.load(font_path, function(font){
+				var nameGeometry3 = new THREE.TextGeometry(mesh3.name, {font: font, size: 1, height: 0, curveSegments: 3});
+				var name3 = new THREE.Mesh(nameGeometry3, new THREE.MeshBasicMaterial({visible: false, color: 0xffffff}));
+				name3.position.set(2, 2, 0);
+				mesh3.add(name3);
+			});
+			fontLoader.load(font_path, function(font){
+				var nameGeometry4 = new THREE.TextGeometry(mesh4.name, {font: font, size: 1, height: 0, curveSegments: 3});
+				var name4 = new THREE.Mesh(nameGeometry4, new THREE.MeshBasicMaterial({visible: false, color: 0xffffff}));
+				name4.position.set(2, 2, 0);
+				mesh4.add(name4);
+			});
+			fontLoader.load(font_path, function(font){
+				var nameGeometry5 = new THREE.TextGeometry(mesh5.name, {font: font, size: 1, height: 0, curveSegments: 3});
+				var name5 = new THREE.Mesh(nameGeometry5, new THREE.MeshBasicMaterial({visible: false, color: 0xffffff}));
+				name5.position.set(2, 2, 0);
+				mesh5.add(name5);
+			});
+			fontLoader.load(font_path, function(font){
+				var nameGeometry6 = new THREE.TextGeometry(mesh6.name, {font: font, size: 1, height: 0, curveSegments: 3});
+				var name6 = new THREE.Mesh(nameGeometry6, new THREE.MeshBasicMaterial({visible: false, color: 0xffffff}));
+				name6.position.set(2, 2, 0);
+				mesh6.add(name6);
+			});
+			fontLoader.load(font_path, function(font){
+				var nameGeometry7 = new THREE.TextGeometry(mesh7.name, {font: font, size: 1, height: 0, curveSegments: 3});
+				var name7 = new THREE.Mesh(nameGeometry7, new THREE.MeshBasicMaterial({visible: false, color: 0xffffff}));
+				name7.position.set(2, 2, 0);
+				mesh7.add(name7);
+			});
+			fontLoader.load(font_path, function(font){
+				var nameGeometry8 = new THREE.TextGeometry(mesh8.name, {font: font, size: 1, height: 0, curveSegments: 3});
+				var name8 = new THREE.Mesh(nameGeometry8, new THREE.MeshBasicMaterial({visible: false, color: 0xffffff}));
+				name8.position.set(2, 2, 0);
+				mesh8.add(name8);
+			});
+			fontLoader.load(font_path, function(font){
+				var nameGeometry8 = new THREE.TextGeometry(mesh8.name, {font: font, size: 1, height: 0, curveSegments: 3});
+				var name8 = new THREE.Mesh(nameGeometry8, new THREE.MeshBasicMaterial({visible: false, color: 0xffffff}));
+				name8.position.set(2, 2, 0);
+				mesh8.add(name8);
+			});
+			fontLoader.load(font_path, function(font){
+				var nameGeometry9 = new THREE.TextGeometry(mesh9.name, {font: font, size: 1, height: 0, curveSegments: 3});
+				var name9 = new THREE.Mesh(nameGeometry9, new THREE.MeshBasicMaterial({visible: false, color: 0xffffff}));
+				name9.position.set(2, 2, 0);
+				mesh9.add(name9);
+			});
+			fontLoader.load(font_path, function(font){
+				var nameGeometry10 = new THREE.TextGeometry(mesh10.name, {font: font, size: 1, height: 0, curveSegments: 3});
+				var name10 = new THREE.Mesh(nameGeometry10, new THREE.MeshBasicMaterial({visible: false, color: 0xffffff}));
+				name10.position.set(2, 2, 0);
+				mesh10.add(name10);
+			});
+			fontLoader.load(font_path, function(font){
+				var nameGeometry11 = new THREE.TextGeometry(mesh11.name, {font: font, size: 1, height: 0, curveSegments: 3});
+				var name11 = new THREE.Mesh(nameGeometry11, new THREE.MeshBasicMaterial({visible: false, color: 0xffffff}));
+				name11.position.set(2, 2, 0);
+				mesh11.add(name11);
+			});
+			fontLoader.load(font_path, function(font){
+				var nameGeometry12 = new THREE.TextGeometry(mesh12.name, {font: font, size: 1, height: 0, curveSegments: 3});
+				var name12 = new THREE.Mesh(nameGeometry12, new THREE.MeshBasicMaterial({visible: false, color: 0xffffff}));
+				name12.position.set(2, 2, 0);
+				mesh12.add(name12);
+			});
+
+			// track analyzers
+			var analyser1 = new THREE.AudioAnalyser(sound1, 256);
+			var analyser2 = new THREE.AudioAnalyser(sound2, 256);
+			var analyser3 = new THREE.AudioAnalyser(sound3, 256);
+			var analyser4 = new THREE.AudioAnalyser(sound4, 256);
+			var analyser5 = new THREE.AudioAnalyser(sound5, 256);
+			var analyser6 = new THREE.AudioAnalyser(sound6, 256);
+			var analyser7 = new THREE.AudioAnalyser(sound7, 256);
+			var analyser8 = new THREE.AudioAnalyser(sound8, 256);
+			var analyser9 = new THREE.AudioAnalyser(sound9, 256);
+			var analyser10 = new THREE.AudioAnalyser(sound10, 256);
+			var analyser11 = new THREE.AudioAnalyser(sound11, 256);
+			var analyser12 = new THREE.AudioAnalyser(sound12, 256);
+
+			// initialize playback
+			function init(){
+				// remove overlay
+				var overlay = document.getElementById('overlay');
+				overlay.remove();
+
+				// start playback
+				listener.context.resume();
+				meshes.forEach((item, i) => {
+					item.children[0].play();
+				});
+
+				// renderer
+				renderer = new THREE.WebGLRenderer({antialias: true});
+				renderer.setPixelRatio(window.devicePixelRatio);
+				renderer.setSize(window.innerWidth, window.innerHeight);
+				document.body.appendChild(renderer.domElement);
+
+				// controls
+				orbitControls = new THREE.OrbitControls(camera, renderer.domElement);
+				orbitControls.target.set(0, 15, 0);
+				orbitControls.update();
+				dragControls = new THREE.DragControls(meshes, camera, renderer.domElement);
+
+				// events
+				window.addEventListener('resize', onWindowResize, false);
+
+				dragControls.addEventListener('dragstart', function(e){
+					orbitControls.enabled = false;
+					if (e.object.name != ""){
+						dragControls.enabled = true;
+					} else {
+						dragControls.enabled = false;
+						renderer.domElement.style.cursor = 'auto';
+					}
+				});
+				dragControls.addEventListener('dragend', function(e){
+					orbitControls.enabled = true;
+				});
+
+				dragControls.addEventListener('hoveron', function(e){
+					if (e.object.name != ""){
+						e.object.children[1].lookAt(new THREE.Vector3(1000, 0, 0));
+						e.object.children[1].material.visible = true;
+
+						// disable other mesh names
+						scene.children.forEach((item, i) => {
+							if (item.type == "Mesh" && e.object.name != item.name){
+								item.children[1].material.visible = false;
+							}
+						});
+					}
+				});
+				dragControls.addEventListener('hoveroff', function(e){
+					if (e.object.name != ""){
+						e.object.children[1].material.visible = false;
+					}
+				});
+
+				// start render loop
+				update();
+			}
+
+			// resize update
+			function onWindowResize(){
+				width = window.innerWidth;
+				height = window.innerHeight;
+				camera.aspect = width / height;
+				camera.updateProjectionMatrix();
+				renderer.setSize(width, height);
+			}
+
+			// update scene
+			function update(){
+				// calculate mesh scale and opacity
+				var avg1 = 1 + analyser1.getAverageFrequency() / 60;
+				var opc1 = 0.6 + (avg1 - 1.0);
+				mesh1.scale.set(avg1, avg1, avg1);
+				mesh1.material.opacity = opc1;
+				var avg2 = 1 + analyser2.getAverageFrequency() / 60;
+				var opc2 = 0.6 + (avg2 - 1.0);
+				mesh2.scale.set(avg2, avg2, avg2);
+				mesh2.material.opacity = opc2;
+				var avg3 = 1 + analyser3.getAverageFrequency() / 60;
+				var opc3 = 0.6 + (avg3 - 1.0);
+				mesh3.scale.set(avg3, avg3, avg3);
+				mesh3.material.opacity = opc3;
+				var avg4 = 1 + analyser4.getAverageFrequency() / 60;
+				var opc4 = 0.6 + (avg4 - 1.0);
+				mesh4.scale.set(avg4, avg4, avg4);
+				mesh4.material.opacity = opc4;
+				var avg5 = 1 + analyser5.getAverageFrequency() / 60;
+				var opc5 = 0.6 + (avg5 - 1.0);
+				mesh5.scale.set(avg5, avg5, avg5);
+				mesh5.material.opacity = opc5;
+				var avg6 = 1 + analyser6.getAverageFrequency() / 60;
+				var opc6 = 0.6 + (avg6 - 1.0);
+				mesh6.scale.set(avg6, avg6, avg6);
+				mesh6.material.opacity = opc6;
+				var avg7 = 1 + analyser7.getAverageFrequency() / 60;
+				var opc7 = 0.6 + (avg7 - 1.0);
+				mesh7.scale.set(avg7, avg7, avg7);
+				mesh7.material.opacity = opc7;
+				var avg8 = 1 + analyser8.getAverageFrequency() / 60;
+				var opc8 = 0.6 + (avg8 - 1.0);
+				mesh8.scale.set(avg8, avg8, avg8);
+				mesh8.material.opacity = opc8;
+				var avg9 = 1 + analyser9.getAverageFrequency() / 60;
+				var opc9 = 0.6 + (avg9 - 1.0);
+				mesh9.scale.set(avg9, avg9, avg9);
+				mesh9.material.opacity = opc9;
+				var avg10 = 1 + analyser10.getAverageFrequency() / 60;
+				var opc10 = 0.6 + (avg10 - 1.0);
+				mesh10.scale.set(avg10, avg10, avg10);
+				mesh10.material.opacity = opc10;
+				var avg11 = 1 + analyser11.getAverageFrequency() / 60;
+				var opc11 = 0.6 + (avg11 - 1.0);
+				mesh11.scale.set(avg11, avg11, avg11);
+				mesh11.material.opacity = opc11;
+				var avg12 = 1 + analyser12.getAverageFrequency() / 60;
+				var opc12 = 0.6 + (avg12 - 1.0);
+				mesh12.scale.set(avg12, avg12, avg12);
+				mesh12.material.opacity = opc12;
+
+				// animation loop
+				requestAnimationFrame(update);
+				// render scene to canvas
+				renderer.render(scene, camera);
+			}
+		</script>
+	</body>
+</html>
