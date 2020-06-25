@@ -17,8 +17,8 @@
 		<script src="../libraries/GPUComputationRenderer.js"></script>
 		<script src="../libraries/OrbitControls.js"></script>
 
-		<!-- GPGPU shader -->
-		<script type="x-shader/x-fragment" id="computeShaderPosition">
+		<!-- compute shader -->
+		<script type="x-shader/x-fragment" id="computePosition">
 			// application inputs
 			uniform float time;
 			uniform float delta;
@@ -27,7 +27,8 @@
 			uniform float drag;
 			uniform float contactRad;
 			uniform float contactAmp;
-			uniform vec3 camMovement;
+			uniform float waveSpeed;
+			uniform float damping;
 			uniform float pTexWidth;
 			// input textures
 			uniform sampler2D initialState;
@@ -36,23 +37,22 @@
 				// setup
 				vec2 uv = gl_FragCoord.xy / resolution.xy; // fragment coordinates
 				vec4 position = texture2D(texturePosition, uv); // (x,z) plane coordinates; (y,w) current/previous wave height
-				// vec4 initial = texture2D(initialState, uv) * 0.16;
-				// position.y = mix(position.y + length(initial.b) * 0.06, position.y, clamp(time - 0.002, 0.0, 1.0));
+				vec4 initial = texture2D(initialState, uv) * 0.02; // start with simple wave to show movement
+				position.y = mix(position.y + length(initial.b) * 0.06, position.y, clamp(time - 0.002, 0.0, 1.0));
 
 				// wave equation algorithm based on http://www.mtnmath.com/whatrh/node66.html
-				// truncation not needed because current wave range is 0-1, reference is 0-100
-				// rates of change calculations
-				float t = mix(0.002, position.y, step(0.01, 1.0 - length(position.xz))); // current height
+				// truncation not needed because current wave range is (0.0, 1.0), reference is (0, 100)
+				float t = position.y; // current height
 				float tMinus1 = position.w; // previous height
 				// sampling neighbors
-				float tR = mix(0.002, texture2D(texturePosition, uv + vec2(1.0 / pTexWidth, 0.0)).y, step(0.01, 1.0 - length(position.xz))); // right
-				float tL = mix(0.002, texture2D(texturePosition, uv - vec2(1.0 / pTexWidth, 0.0)).y, step(0.01, 1.0 - length(position.xz))); // left
-				float tU = mix(0.002, texture2D(texturePosition, uv + vec2(0.0, 1.0 / pTexWidth)).y, step(0.01, 1.0 - length(position.xz))); // up
-				float tD = mix(0.002, texture2D(texturePosition, uv - vec2(0.0, 1.0 / pTexWidth)).y, step(0.01, 1.0 - length(position.xz))); // down
-				float tNeighbors = (tR + tL + tU + tD - (4.0 * t)) / 4.0;
-				// discrete wave equation
+				float tR = texture2D(texturePosition, uv + vec2(1.0 / pTexWidth, 0.0)).y; // right
+				float tL = texture2D(texturePosition, uv - vec2(1.0 / pTexWidth, 0.0)).y; // left
+				float tU = texture2D(texturePosition, uv + vec2(0.0, 1.0 / pTexWidth)).y; // up
+				float tD = texture2D(texturePosition, uv - vec2(0.0, 1.0 / pTexWidth)).y; // down
+				float tNeighbors = (tR + tL + tU + tD - (4.0 * t)) / waveSpeed;
+				// wave equation
 				float wave = (2.0 * t) - tMinus1 + tNeighbors; // new height
-				wave = wave * 0.98; // damping
+				wave = wave * damping; // damping
 
 				// surface contact wave using mouse input
 				// auxiliary logic rings to build wave (to avoid using if else control flow statements)
@@ -84,7 +84,7 @@
 			uniform float pointSize;
 			// input textures
 			uniform sampler2D texturePosition;
-			// to fragment
+			// to fragment shader
 			varying vec3 vColor;
 
 			void main() {
@@ -110,28 +110,12 @@
 			uniform sampler2D texturePosition;
 			uniform sampler2D vectorFieldTexture;
 			uniform sampler2D pointTexture;
-			// from vertex
+			// from vertex shader
 			varying vec3 vColor;
 
 			void main() {
 				// output
 				gl_FragColor = vec4(vColor, texture2D(pointTexture, gl_PointCoord).a * pointAlpha);
-			}
-		</script>
-		<script type="x-shader/x-fragment" id="fragmentStarField">
-			// application inputs
-			uniform float time;
-			uniform float delta;
-			uniform vec3 color;
-			// input textures
-			uniform sampler2D starTexture;
-			// from vertex
-			varying vec3 vColor;
-			varying float depth;
-
-			void main() {
-				gl_FragColor = vec4(color * vColor, 1.0);
-				gl_FragColor = gl_FragColor * texture2D(starTexture, gl_PointCoord).a;
 			}
 		</script>
 		<script>
@@ -153,9 +137,8 @@
 		camera.position.y = 0.6;
 		camera.position.z = 0.0;
 		camera.lookAt(new THREE.Vector3());
-		// sim variables
-		var lastCamPosition = camera.position.clone();
-		var tick = 0;
+		controls.update();
+		// simulation variables
 		var time = 0.0; // for countdown start
 		var last = performance.now(); // for delta calculation
 		var toggleRaycast = 0;
@@ -169,7 +152,8 @@
 			this.particleSize = 4.6;
 		  this.contactRad = 0.032;
 			this.contactAmp = 1.2;
-		  this.music = true;
+			this.waveSpeed = 2.0;
+			this.damping = 0.990;
 		};
 		var gui = new ConfigGUI();
 		window.onload = function() {
@@ -180,7 +164,8 @@
 			datgui.add(gui, 'particleSize', 1.0, 64.0);
 		  datgui.add(gui, 'contactRad', 0.032, 0.096);
 		  datgui.add(gui, 'contactAmp', 0.5, 4.0);
-		  // datgui.add(gui, 'music');
+		  datgui.add(gui, 'waveSpeed', 2.0, 256.0);
+		  datgui.add(gui, 'damping', 0.960, 1.0);
 		  datgui.close();
 		};
 
@@ -301,7 +286,6 @@
 				this.positionVariable;
 				this.gpuCompute = new THREE.GPUComputationRenderer(pTexWidth, pTexWidth, renderer);
 				var dtPosition = this.gpuCompute.createTexture();
-				this.positionBuffer = dtPosition.clone();
 				// pre-fill computation texture
 				var posDataArray = dtPosition.image.data;
 				let j = 0; // index offset
@@ -313,7 +297,7 @@
 					j += 3;
 				}
 				// computation variable initialization
-				this.positionVariable = this.gpuCompute.addVariable("texturePosition", document.getElementById('computeShaderPosition').textContent, dtPosition);
+				this.positionVariable = this.gpuCompute.addVariable("texturePosition", document.getElementById('computePosition').textContent, dtPosition);
 				this.gpuCompute.setVariableDependencies(this.positionVariable, [this.positionVariable]);
 				this.positionUniforms = this.positionVariable.material.uniforms;
 				// computation shader uniforms init
@@ -325,9 +309,9 @@
 				this.positionUniforms["drag"] = {value: drag};
 				this.positionUniforms["contactRad"] = {value: gui.contactRad};
 				this.positionUniforms["contactAmp"] = {value: gui.contactAmp};
-				this.positionUniforms["camMovement"] = {value: new THREE.Vector3(0.0)};
-				this.positionUniforms["texturePrevPos"] = {value: null};
-				// this.positionUniforms["initialState"] = {value: new THREE.TextureLoader().load("circles.jpg")};
+				this.positionUniforms["waveSpeed"] = {value: gui.waveSpeed};
+				this.positionUniforms["damping"] = {value: gui.damping};
+				this.positionUniforms["initialState"] = {value: new THREE.TextureLoader().load("circles.png")};
 				// initialize GPGPU after setup
 				var error = this.gpuCompute.init();
 				if (error !== null) {
@@ -345,24 +329,18 @@
 				last = now;
 				time += delta;
 
-				// camera movement
-				let camMovement = new THREE.Vector3(0.0);
-				camMovement.subVectors(camera.position, lastCamPosition);
-				lastCamPosition = camera.position.clone();
-
 				// update time uniforms
 				this.positionUniforms["time"].value = time;
 				this.positionUniforms["delta"].value = delta;
 				this.positionUniforms["contactRad"].value = gui.contactRad;
 				this.positionUniforms["contactAmp"].value = gui.contactAmp;
-				this.positionUniforms["camMovement"].value = camMovement;
+				this.positionUniforms["waveSpeed"].value = gui.waveSpeed;
+				this.positionUniforms["damping"].value = gui.damping;
 				this.uniformsParticles["time"].value = time;
 				this.uniformsParticles["delta"].value = delta;
 				this.uniformsParticles["pointAlpha"].value = gui.particleAlpha;
 				this.uniformsParticles["pointSize"].value = gui.particleSize;
 
-				// update t-1 buffer on compute shader
-				this.positionUniforms["texturePrevPos"].value = this.positionBuffer.clone();
 				// get mouse input in object coordinates
 				raycaster.setFromCamera(mouse, camera);
 				let noInter = new THREE.Vector2(4.0); // coordinates outside surface range
@@ -397,7 +375,6 @@
 				this.uniformsParticles["texturePosition"].value = this.gpuCompute.getCurrentRenderTarget(this.positionVariable).texture;
 				// save position to buffer
 				this.positionBuffer = this.uniformsParticles["texturePosition"].value.clone();
-				tick += 1;
 			}
 		}
 

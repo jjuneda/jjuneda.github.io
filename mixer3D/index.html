@@ -139,7 +139,7 @@
 
 			// load tracks and assign to meshes
 			var manager = new THREE.LoadingManager();
-			manager.onLoad = function ( ) {
+			manager.onLoad = function() {
 				startButton.innerText = 'Play';
 				startButton.disabled = false;
 				console.log('Loading done!');
@@ -217,82 +217,94 @@
 				sound12.setRefDistance(32);
 			});
 			mesh12.add(sound12);
+			var sound13 = new THREE.PositionalAudio(listener);
+			audioLoader.load('oneplusoneoga/BAGPIPE_SOLO.oga', function(buffer) {
+				sound13.setBuffer(buffer);
+				sound13.setRefDistance(32);
+			});
+			mesh4.add(sound13);
+			var sound14 = new THREE.PositionalAudio(listener);
+			audioLoader.load('oneplusoneoga/ELEC_GTR_FX.oga', function(buffer) {
+				sound14.setBuffer(buffer);
+				sound14.setRefDistance(32);
+			});
+			mesh6.add(sound14);
 
 			// track names
 			var font_path = '../libraries/helvetiker_regular.typeface.json';
-			fontLoader.load(font_path, function(font){
+			fontLoader.load(font_path, function(font) {
 				var nameGeometry1 = new THREE.TextGeometry(mesh1.name, {font: font, size: 1, height: 0, curveSegments: 3});
 				var name1 = new THREE.Mesh(nameGeometry1, new THREE.MeshBasicMaterial({visible: false, color: 0xffffff}));
 				name1.position.set(2, 2, 0);
 				mesh1.add(name1);
 			});
-			fontLoader.load(font_path, function(font){
+			fontLoader.load(font_path, function(font) {
 				var nameGeometry2 = new THREE.TextGeometry(mesh2.name, {font: font, size: 1, height: 0, curveSegments: 3});
 				var name2 = new THREE.Mesh(nameGeometry2, new THREE.MeshBasicMaterial({visible: false, color: 0xffffff}));
 				name2.position.set(2, 2, 0);
 				mesh2.add(name2);
 			});
-			fontLoader.load(font_path, function(font){
+			fontLoader.load(font_path, function(font) {
 				var nameGeometry3 = new THREE.TextGeometry(mesh3.name, {font: font, size: 1, height: 0, curveSegments: 3});
 				var name3 = new THREE.Mesh(nameGeometry3, new THREE.MeshBasicMaterial({visible: false, color: 0xffffff}));
 				name3.position.set(2, 2, 0);
 				mesh3.add(name3);
 			});
-			fontLoader.load(font_path, function(font){
+			fontLoader.load(font_path, function(font) {
 				var nameGeometry4 = new THREE.TextGeometry(mesh4.name, {font: font, size: 1, height: 0, curveSegments: 3});
 				var name4 = new THREE.Mesh(nameGeometry4, new THREE.MeshBasicMaterial({visible: false, color: 0xffffff}));
 				name4.position.set(2, 2, 0);
 				mesh4.add(name4);
 			});
-			fontLoader.load(font_path, function(font){
+			fontLoader.load(font_path, function(font) {
 				var nameGeometry5 = new THREE.TextGeometry(mesh5.name, {font: font, size: 1, height: 0, curveSegments: 3});
 				var name5 = new THREE.Mesh(nameGeometry5, new THREE.MeshBasicMaterial({visible: false, color: 0xffffff}));
 				name5.position.set(2, 2, 0);
 				mesh5.add(name5);
 			});
-			fontLoader.load(font_path, function(font){
+			fontLoader.load(font_path, function(font) {
 				var nameGeometry6 = new THREE.TextGeometry(mesh6.name, {font: font, size: 1, height: 0, curveSegments: 3});
 				var name6 = new THREE.Mesh(nameGeometry6, new THREE.MeshBasicMaterial({visible: false, color: 0xffffff}));
 				name6.position.set(2, 2, 0);
 				mesh6.add(name6);
 			});
-			fontLoader.load(font_path, function(font){
+			fontLoader.load(font_path, function(font) {
 				var nameGeometry7 = new THREE.TextGeometry(mesh7.name, {font: font, size: 1, height: 0, curveSegments: 3});
 				var name7 = new THREE.Mesh(nameGeometry7, new THREE.MeshBasicMaterial({visible: false, color: 0xffffff}));
 				name7.position.set(2, 2, 0);
 				mesh7.add(name7);
 			});
-			fontLoader.load(font_path, function(font){
+			fontLoader.load(font_path, function(font) {
 				var nameGeometry8 = new THREE.TextGeometry(mesh8.name, {font: font, size: 1, height: 0, curveSegments: 3});
 				var name8 = new THREE.Mesh(nameGeometry8, new THREE.MeshBasicMaterial({visible: false, color: 0xffffff}));
 				name8.position.set(2, 2, 0);
 				mesh8.add(name8);
 			});
-			fontLoader.load(font_path, function(font){
+			fontLoader.load(font_path, function(font) {
 				var nameGeometry8 = new THREE.TextGeometry(mesh8.name, {font: font, size: 1, height: 0, curveSegments: 3});
 				var name8 = new THREE.Mesh(nameGeometry8, new THREE.MeshBasicMaterial({visible: false, color: 0xffffff}));
 				name8.position.set(2, 2, 0);
 				mesh8.add(name8);
 			});
-			fontLoader.load(font_path, function(font){
+			fontLoader.load(font_path, function(font) {
 				var nameGeometry9 = new THREE.TextGeometry(mesh9.name, {font: font, size: 1, height: 0, curveSegments: 3});
 				var name9 = new THREE.Mesh(nameGeometry9, new THREE.MeshBasicMaterial({visible: false, color: 0xffffff}));
 				name9.position.set(2, 2, 0);
 				mesh9.add(name9);
 			});
-			fontLoader.load(font_path, function(font){
+			fontLoader.load(font_path, function(font) {
 				var nameGeometry10 = new THREE.TextGeometry(mesh10.name, {font: font, size: 1, height: 0, curveSegments: 3});
 				var name10 = new THREE.Mesh(nameGeometry10, new THREE.MeshBasicMaterial({visible: false, color: 0xffffff}));
 				name10.position.set(2, 2, 0);
 				mesh10.add(name10);
 			});
-			fontLoader.load(font_path, function(font){
+			fontLoader.load(font_path, function(font) {
 				var nameGeometry11 = new THREE.TextGeometry(mesh11.name, {font: font, size: 1, height: 0, curveSegments: 3});
 				var name11 = new THREE.Mesh(nameGeometry11, new THREE.MeshBasicMaterial({visible: false, color: 0xffffff}));
 				name11.position.set(2, 2, 0);
 				mesh11.add(name11);
 			});
-			fontLoader.load(font_path, function(font){
+			fontLoader.load(font_path, function(font) {
 				var nameGeometry12 = new THREE.TextGeometry(mesh12.name, {font: font, size: 1, height: 0, curveSegments: 3});
 				var name12 = new THREE.Mesh(nameGeometry12, new THREE.MeshBasicMaterial({visible: false, color: 0xffffff}));
 				name12.position.set(2, 2, 0);
@@ -312,9 +324,11 @@
 			var analyser10 = new THREE.AudioAnalyser(sound10, 256);
 			var analyser11 = new THREE.AudioAnalyser(sound11, 256);
 			var analyser12 = new THREE.AudioAnalyser(sound12, 256);
+			var analyser13 = new THREE.AudioAnalyser(sound13, 256);
+			var analyser14 = new THREE.AudioAnalyser(sound14, 256);
 
 			// initialize playback
-			function init(){
+			function init() {
 				// remove overlay
 				var overlay = document.getElementById('overlay');
 				overlay.remove();
@@ -322,7 +336,11 @@
 				// start playback
 				listener.context.resume();
 				meshes.forEach((item, i) => {
-					item.children[0].play();
+					item.children.forEach((child, j) => {
+						if (child.type == "Audio") {
+							child.play();
+						}
+					});
 				});
 
 				// renderer
@@ -340,7 +358,7 @@
 				// events
 				window.addEventListener('resize', onWindowResize, false);
 
-				dragControls.addEventListener('dragstart', function(e){
+				dragControls.addEventListener('dragstart', function(e) {
 					orbitControls.enabled = false;
 					if (e.object.name != ""){
 						dragControls.enabled = true;
@@ -349,26 +367,36 @@
 						renderer.domElement.style.cursor = 'auto';
 					}
 				});
-				dragControls.addEventListener('dragend', function(e){
+				dragControls.addEventListener('dragend', function(e) {
 					orbitControls.enabled = true;
 				});
 
-				dragControls.addEventListener('hoveron', function(e){
-					if (e.object.name != ""){
-						e.object.children[1].lookAt(new THREE.Vector3(1000, 0, 0));
-						e.object.children[1].material.visible = true;
-
+				dragControls.addEventListener('hoveron', function(e) {
+					if (e.object.name != "") {
+						// disable other mesh names
+						e.object.children.forEach((item, i) => {
+							if (item.type == "Mesh") {
+								item.lookAt(new THREE.Vector3(1000, 0, 0));
+								item.material.visible = true;
+							}
+						});
 						// disable other mesh names
 						scene.children.forEach((item, i) => {
-							if (item.type == "Mesh" && e.object.name != item.name){
-								item.children[1].material.visible = false;
-							}
+							item.children.forEach((child, j) => {
+								if (item.type == "Mesh" && child.type == "Mesh" && e.object.name != item.name) {
+									child.material.visible = false;
+								}
+							});
 						});
 					}
 				});
-				dragControls.addEventListener('hoveroff', function(e){
-					if (e.object.name != ""){
-						e.object.children[1].material.visible = false;
+				dragControls.addEventListener('hoveroff', function(e) {
+					if (e.object.name != "") {
+						e.object.children.forEach((item, i) => {
+							if (item.type == "Mesh") {
+								item.material.visible = false;
+							}
+						});
 					}
 				});
 
@@ -377,7 +405,7 @@
 			}
 
 			// resize update
-			function onWindowResize(){
+			function onWindowResize() {
 				width = window.innerWidth;
 				height = window.innerHeight;
 				camera.aspect = width / height;
@@ -386,7 +414,7 @@
 			}
 
 			// update scene
-			function update(){
+			function update() {
 				// calculate mesh scale and opacity
 				var avg1 = 1 + analyser1.getAverageFrequency() / 60;
 				var opc1 = 0.6 + (avg1 - 1.0);
@@ -436,6 +464,14 @@
 				var opc12 = 0.6 + (avg12 - 1.0);
 				mesh12.scale.set(avg12, avg12, avg12);
 				mesh12.material.opacity = opc12;
+				var avg13 = mesh4.scale.x + analyser13.getAverageFrequency() / 60;
+				var opc13 = mesh4.material.opacity + (avg13 - 1.0);
+				mesh4.scale.set(avg13, avg13, avg13);
+				mesh4.material.opacity = opc13;
+				var avg14 = mesh6.scale.x + analyser14.getAverageFrequency() / 60;
+				var opc14 = mesh6.material.opacity + (avg14 - 1.0);
+				mesh6.scale.set(avg14, avg14, avg14);
+				mesh6.material.opacity = opc14;
 
 				// animation loop
 				requestAnimationFrame(update);
