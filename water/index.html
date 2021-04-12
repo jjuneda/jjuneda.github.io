@@ -12,7 +12,7 @@
 			body{margin: 0; padding: 0; width: 100%;}
 			canvas{width: 100%; height: 100%;}
 		</style>
-    <script src="../libraries/dat.gui.js"></script>
+		<script src="../libraries/dat.gui.js"></script>
 		<script src="../libraries/three.js"></script>
 		<script src="../libraries/GPUComputationRenderer.js"></script>
 		<script src="../libraries/OrbitControls.js"></script>
@@ -52,7 +52,7 @@
 				float tNeighbors = (tR + tL + tU + tD - (4.0 * t)) / waveSpeed;
 				// wave equation
 				float wave = (2.0 * t) - tMinus1 + tNeighbors; // new height
-				wave = wave * damping; // damping
+				wave = wave * damping; // wave damping
 
 				// surface contact wave using mouse input
 				// auxiliary logic rings to build wave (to avoid using if else control flow statements)
@@ -157,16 +157,16 @@
 		};
 		var gui = new ConfigGUI();
 		window.onload = function() {
-		  var datgui = new dat.GUI();
-		  datgui.add(gui, 'experiment');
+			var datgui = new dat.GUI();
+			datgui.add(gui, 'experiment');
 			datgui.add(gui, 'particleTexWidth', 16, 2048);
 			datgui.add(gui, 'particleAlpha', 0.01, 1.0);
 			datgui.add(gui, 'particleSize', 1.0, 64.0);
-		  datgui.add(gui, 'contactRad', 0.032, 0.096);
-		  datgui.add(gui, 'contactAmp', 0.5, 4.0);
-		  datgui.add(gui, 'waveSpeed', 2.0, 256.0);
-		  datgui.add(gui, 'damping', 0.960, 1.0);
-		  datgui.close();
+			datgui.add(gui, 'contactRad', 0.032, 0.096);
+			datgui.add(gui, 'contactAmp', 0.5, 4.0);
+			datgui.add(gui, 'waveSpeed', 2.0, 256.0);
+			datgui.add(gui, 'damping', 0.960, 1.0);
+			datgui.close();
 		};
 
 		// window resizer
