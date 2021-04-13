@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<meta http-equiv="X-UA-Compatible" content="ie=edge">
+		<title>starmap</title>
+		<!-- juneda -->
+	</head>
+	<body>
+		<style>
+			body{overflow: hidden; margin: 0; padding: 0; width: 100%;}
+			canvas{width: 100%; height: 100%;}
+		</style>
+		<script src="three.js"></script>
+		<script src="OrbitControls.js"></script>
+		<script src="OBJLoader.js"></script>
+		<!-- sphere shaders -->
+		<script type="x-shader/x-vertex" id="sphereVertexShader">
+			// to fragment shader
+			varying vec2 vUv;
+
+			void main() {
+				vUv = uv;
+				gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0);
+			}
+		</script>
+		<script type="x-shader/x-fragment" id="sphereFragmentShader">
+			uniform vec2 resolution;
+			// from vertex shader
+			varying vec2 vUv; // mesh uv coordinates
+
+			void main() {
+				vec2 uv = gl_FragCoord.xy / resolution.xy; // fragment coordinates
+				gl_FragColor = vec4(vUv, 0.5, 1.0);
+			}
+		</script>
+		<!-- sphere shaders -->
+		<script type="x-shader/x-vertex" id="vertexshader">
+			attribute vec3 color;
+			attribute float v;
+			varying vec3 vColor;
+
+			void main() {
+				vColor = color;
+				vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+				gl_PointSize = (pow(v, 2.4) / -mvPosition.z) / 6.4;
+				gl_Position = projectionMatrix * mvPosition;
+			}
+		</script>
+		<script type="x-shader/x-fragment" id="fragmentshader">
+			uniform vec3 uColor;
+			uniform sampler2D pointTexture;
+			varying vec3 vColor;
+
+			void main() {
+				gl_FragColor = vec4(uColor * vColor, 1.0);
+				gl_FragColor = vec4(gl_FragColor.rgb, texture2D(pointTexture, gl_PointCoord).a * 1.2);
+			}
+		</script>
+		<script>
+		// scene setup /////////////////////////////////////////////////////////////
+		var width = window.innerWidth;
+		var height = window.innerHeight;
+		var scene = new THREE.Scene();
+		var camera = new THREE.PerspectiveCamera(96, window.innerWidth / window.innerHeight, 0.1, 1000.0);
+		var renderer = new THREE.WebGLRenderer({antialias: false});
+		var raycaster = new THREE.Raycaster();
+		var mouse = new THREE.Vector2(1.0);
+		var controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+		renderer.setSize(window.innerWidth, window.innerHeight);
+		document.body.appendChild(renderer.domElement); // add threejs renderer element to document
+		// set initial camera position and orientation
+		camera.position.set(0.6, 0.1, 0.6);
+		camera.lookAt(new THREE.Vector3());
+
+		// event functions /////////////////////////////////////////////////////////
+		// window resizer
+		window.addEventListener('resize', function(){
+			width = window.innerWidth;
+			height = window.innerHeight;
+			renderer.setSize(width, height);
+			camera.aspect = width / height;
+			camera.updateProjectionMatrix();
+		});
+		// mouse position (normalized)
+		window.addEventListener('mousemove', function(event){
+			event.preventDefault();
+			mouse.x = ((event.clientX / width) * 2) - 1;
+			mouse.y = -((event.clientY / height) * 2) + 1;
+		});
+
+		// add geometry ////////////////////////////////////////////////////////////
+		const sphereGeometry = new THREE.SphereGeometry(5, 64, 64);
+		const sphereUniforms = {
+			resolution: {type: "v2", value: new THREE.Vector2(width, height)}
+		};
+		const sphereMaterial = new THREE.ShaderMaterial({
+			uniforms: sphereUniforms,
+			vertexShader: document.getElementById('sphereVertexShader').textContent,
+			fragmentShader: document.getElementById('sphereFragmentShader').textContent});
+		const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+		sphere.rotateY(-1.57);
+		// scene.add(sphere);
+
+		const testGeometry = new THREE.SphereGeometry(0.16, 8, 8);
+		const testMaterial = new THREE.MeshBasicMaterial({color: 0xbbffbb});
+		const testSphere = new THREE.Mesh(testGeometry, testMaterial);
+		// scene.add(testSphere);
+
+		const polarGridHelper = new THREE.PolarGridHelper(5, 1, 1, 64, 0x111111, 0x99999);
+		scene.add(polarGridHelper);
+
+		const ecliptic = new THREE.PolarGridHelper(5, 1, 1, 64, 0x111111, 0xaaaaee);
+		ecliptic.rotateZ(-0.408);
+		scene.add(ecliptic);
+
+		// right ascension string  to float ////////////////////////////////////////
+		var parseRightAscension = function(ra) {
+			let arr = ra.split(" ");
+			arr[0] = arr[0].substr(0, 2);
+			arr[1] = arr[1].substr(0, 2);
+			arr[2] = arr[2].substr(0, 4);
+			let r = parseFloat(arr[0]) + ((parseFloat(arr[1]) + parseFloat(arr[2]) / 60.0) / 60.0);
+			return r;
+		};
+
+		// declination string  to float ////////////////////////////////////////////
+		var parseDeclination = function(d) {
+			let arr = d.split(" ");
+			arr[0] = arr[0].substr(0, 3);
+			arr[1] = arr[1].substr(0, 2);
+			arr[2] = arr[2].substr(0, 4);
+			let r = parseFloat(arr[0]) + ((parseFloat(arr[1]) + parseFloat(arr[2]) / 60.0) / 60.0);
+			return r;
+		};
+
+		// xyz to RA/D /////////////////////////////////////////////////////////////
+		var xyz2rad = function(c, r) {
+			let rad = new THREE.Vector2();
+			rad.x = ((Math.atan2(c.x, c.z) / (Math.PI * 2)) + 0.5) * 24.0;
+			rad.y = ((Math.acos(c.y/r) / Math.PI) - 0.5) * -180.0;
+			return rad;
+		};
+
+		// RA/D to xyz /////////////////////////////////////////////////////////////
+		var rad2xyz = function(ra, d, r) {
+			let xyz = new THREE.Vector3();
+			let rightAscension = (ra / 24.0) * (Math.PI * 2.0); // map from (0,24) to (0,TAU)
+			let declination = ((d + 90.0) / 180.0) * Math.PI; // map from (-90,90) to (0,PI)
+			xyz.x = -r * Math.sin(rightAscension) * Math.sin(declination);
+			xyz.y = -r * Math.cos(declination);
+			xyz.z = -r * Math.cos(rightAscension) * Math.sin(declination);
+			return xyz;
+		};
+
+		// load bright star catalog ////////////////////////////////////////////////
+		var stars = new THREE.Points();
+		var starmapGeometry = new THREE.BufferGeometry();
+		var loader = new THREE.FileLoader();
+		loader.load(
+			// resource URL
+			'bsc5-short.json',
+			// onLoad callback
+			function(data) {
+				let lineArray = JSON.parse(data);
+				let positions = [];
+				let colors = [];
+				let vees = [];
+				lineArray.forEach(function(element) {
+					let xyz = rad2xyz(parseRightAscension(element.RA), parseDeclination(element.Dec), 5.0);
+					if (element.V) {
+						positions.push(xyz.x, xyz.y, xyz.z);
+						colors.push(0.8, 0.8, 1.0);
+						if (!element.N) colors.push(0.6, 0.6, 1.0); else colors.push(0.8, 1.0, 0.8);
+						if (!element.N || element.V > 3.1416) vees.push(parseFloat(element.V)); else vees.push(parseFloat(element.V) * 3.6);
+						// vees.push(parseFloat(element.V));
+						// console.log(element);
+						// console.log(parseRightAscension(element.RA), parseDeclination(element.Dec));
+					}
+				});
+				starmapGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+				starmapGeometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+				starmapGeometry.setAttribute('v', new THREE.Float32BufferAttribute(vees, 1));
+
+				const material = new THREE.ShaderMaterial({
+					uniforms: {
+						uColor: {value: new THREE.Color(0xffffff)},
+						pointTexture: {value: new THREE.TextureLoader().load('gradient.png')}
+					},
+					vertexShader: document.getElementById('vertexshader').textContent,
+					fragmentShader: document.getElementById('fragmentshader').textContent,
+					blending: THREE.AdditiveBlending,
+					depthWrite: false,
+					transparent: true
+				});
+
+				stars = new THREE.Points(starmapGeometry, material);
+				stars.name = "stars";
+				scene.add(stars);
+			}
+		);
+
+
+		// load constellations /////////////////////////////////////////////////////
+		// var constellations = new THREE.Group();
+		const objLoader = new THREE.OBJLoader();
+		objLoader.load(
+			// resource URL
+			'constellations.obj',
+			// onLoad callback
+			function(object) {
+				object.rotateX(1.5708);
+				let s = 7.8;
+				object.scale.set(-s, s, s);
+				object.children[0].material = new THREE.MeshBasicMaterial({color: 0xaaccee, blending: THREE.AdditiveBlending});
+				// console.log(object);
+				scene.add(object);
+			},
+		);
+
+		console.log(starmapGeometry.attributes);
+
+		// frame animation /////////////////////////////////////////////////////////
+		var frame = 0;
+		var update = function() {
+			// update the picking ray with the camera and mouse position
+			raycaster.setFromCamera(mouse, camera);
+			// calculate objects intersecting the picking ray
+			const intersects = raycaster.intersectObjects([scene.children[0]]);
+			// for every intersection log position to console
+			for (let i = 0; i < intersects.length; i++) {
+				testSphere.position.set(intersects[i].point.x, intersects[i].point.y, intersects[i].point.z);
+				let radius = 5.0;
+				let radCoords = xyz2rad(intersects[i].point, radius);
+			}
+			let stars = scene.getObjectByName("stars");
+			// if (frame < 3000) {if (stars === undefined) console.log("undefined!"); else stars.rotateY(0.0008)};
+
+			frame++; // keep frame count
+		};
+
+		// objects to screen ///////////////////////////////////////////////////////
+		var render = function() {
+			// render scene from camera
+			renderer.render(scene, camera);
+		};
+
+		// frame render loop ///////////////////////////////////////////////////////
+		var loop = function() {
+			requestAnimationFrame(loop);
+			update();
+			render();
+		};
+
+		loop(); // start recursive render loop
+		</script>
+	</body>
+</html>
