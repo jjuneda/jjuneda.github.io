@@ -213,13 +213,12 @@
 		class Waves {
 			constructor(textureWidth) {
 				// mouse helper circle
-				var helperGeometry = new THREE.CircleGeometry(0.996, 32);
-				var helperMaterial = new THREE.MeshBasicMaterial({color: 0x0000ff});
+				var helperGeometry = new THREE.CylinderGeometry(0.996, 0.996, 2.0, 32);
+				var helperMaterial = new THREE.MeshBasicMaterial({color: 0x000066});
 				this.circle = new THREE.Mesh(helperGeometry, helperMaterial);
 				scene.add(this.circle);
-				this.circle.rotateX(-1.57);
-				this.circle.translateZ(-0.032);
-				this.circle.visible = false;
+				this.circle.translateY(-1.032);
+				this.circle.visible = true;
 
 				// particle geometry setup /////////////////////////////////////////////
 				var pTexWidth = textureWidth;

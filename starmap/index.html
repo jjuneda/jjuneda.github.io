@@ -55,7 +55,7 @@
 
 			void main() {
 				gl_FragColor = vec4(uColor * vColor, 1.0);
-				gl_FragColor = vec4(gl_FragColor.rgb, texture2D(pointTexture, gl_PointCoord).a * 1.2);
+				gl_FragColor = vec4(gl_FragColor.rgb, texture2D(pointTexture, gl_PointCoord).a * 1.0);
 			}
 		</script>
 		<script>
